@@ -1,6 +1,8 @@
 import re
 import eventlet
 eventlet.monkey_patch()
+import time
+import razorpay
 
 import random, os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
@@ -20,8 +22,7 @@ import logging
 
 
 
-import time
-import razorpay
+
 from werkzeug.utils import secure_filename
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
