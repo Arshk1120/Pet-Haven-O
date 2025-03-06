@@ -9,17 +9,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cart.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap">
-    <style>
-        .error-message {
-            color: red;
-            font-size: 0.8em;
-            margin-top: 5px;
-            display: none;
-        }
-        .input-error {
-            border: 2px solid red;
-        }
-    </style>
 </head>
 
 <body>
@@ -67,22 +56,56 @@
 
                         <div class="address-grid">
                             <div class="form-group">
-                                <label for="city">City</label>
+                                <label for="HouseNo">House No. *</label>
+                                <input type="text" id="HouseNo" placeholder="Enter house number" required>
+                                <div id="HouseNoError" class="error-message">Please enter a house number</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="landmark">Landmark </label>
+                                <input type="text" id="landmark" placeholder="Enter landmark">
+                                <div id="landmarkError" class="error-message">Please enter a valid landmark</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="city">City *</label>
                                 <input type="text" id="city" placeholder="Enter city">
                                 <div id="cityError" class="error-message">Please enter a valid city name</div>
                             </div>
                             <div class="form-group">
-                                <label for="state">State</label>
+                                <label for="state">State *</label>
                                 <input type="text" id="state" placeholder="Enter state">
                                 <div id="stateError" class="error-message">Please enter a valid state name</div>
                             </div>
                             <div class="form-group">
-                                <label for="pincode">PIN Code</label>
+                                <label for="pincode">PIN Code *</label>
                                 <input type="text" id="pincode" placeholder="Enter PIN code">
                                 <div id="pincodeError" class="error-message">Please enter a valid 6-digit PIN code</div>
                             </div>
                         </div>
-
+                        {%for it in cart_data.cart_items%}
+                        {%if it.title%}
+                            <form id="dogRegistrationForm" novalidate>
+                                <h3>Enter dog details for registration:</h3>
+                                <div class="form-group">
+                                    <label for="dog-name">Dog's Name:</label>
+                                    <input type="text" id="dog-name" name="name" value="{{ request.form.name }}"
+                                        placeholder="Enter your dog's name" required>
+                                    <div id="dogNameError" class="error-message">Please enter a valid dog name (letters and spaces only)</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="breed">Breed:</label>
+                                    <input type="text" id="breed" name="breed" value="{{ request.form.breed }}"
+                                        placeholder="Enter breed" required>
+                                    <div id="breedError" class="error-message">Please enter a valid breed (letters and spaces only)</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="age">Age (in months):</label>
+                                    <input type="number" id="age" name="age" value="{{ request.form.age }}"
+                                        placeholder="Enter age in months" required>
+                                    <div id="ageError" class="error-message">Please enter a valid age between 0 and 360 months</div>
+                                </div>
+                            </form>
+                        {%endif%}
+                    {%endfor%}
                         <div class="terms-checkbox">
                             <input type="checkbox" id="terms" required>
                             <label for="terms">
@@ -93,7 +116,6 @@
                     </form>
                 </div>
             </div>
-
             <div class="cart-summary">
                 <h2>
                     <center>Review your cart</center>
@@ -105,6 +127,7 @@
                             <div class="item-details">
                                 <h4>{{ item.breed if item.breed else (item.tname if item.tname else item.title) }}</h4>
                                 {% if item.breed %}
+                                   <img src="{{ url_for('static', filename=item['image']) }}" alt="{{ item['title'] or item['breed'] }}">
                                     <p>Quantity: {{ item.quantity }}x</p>
                                     <p class="price">₹{{ item.price * item.quantity }}</p>
                                 {% elif item.title %}
@@ -165,201 +188,17 @@
 
             <h3>6. Changes to Terms</h3>
             <p>We may update these terms and conditions from time to time. Any changes will be posted on this page, and your continued use of our services constitutes your acceptance of the updated terms.</p>
-
-            <h3>7. Contact Us</h3>
-            <p>If you have any questions about these terms and conditions, please contact us at <a href="mailto:support@pethaven.com">support@pethaven.com</a>.</p>
+             
+            <h3>7. No cancelation </h3>
+            <p>Cancelation is not permitted under any circumstances. </p>
+            
+            <h3>8. Contact Us</h3>
+            <p>If you have any questions about these terms and conditions, please contact us at <a href="mailto:support@pethaven.com">companypethaven@gmail.com</a>.</p>
+            
+            
         </div>
     </div>
-    <style>
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
 
-        .modal-content {
-            background-color: #fff;
-            margin: 10% auto;
-            padding: 20px;
-            border-radius: 8px;
-            width: 80%;
-            max-width: 600px;
-        }
-
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-    </style>
-
-    <script>
-        // Validation Functions
-        function validateFullName() {
-            const fullName = document.getElementById('fullName');
-            const fullNameError = document.getElementById('fullNameError');
-            const nameRegex = /^[a-zA-Z\s]{3,50}$/;
-
-            if (!nameRegex.test(fullName.value.trim())) {
-                fullName.classList.add('input-error');
-                fullNameError.style.display = 'block';
-                return false;
-            }
-            fullName.classList.remove('input-error');
-            fullNameError.style.display = 'none';
-            return true;
-        }
-
-        function validateEmail() {
-            const email = document.getElementById('email');
-            const emailError = document.getElementById('emailError');
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-            if (!emailRegex.test(email.value.trim())) {
-                email.classList.add('input-error');
-                emailError.style.display = 'block';
-                return false;
-            }
-            email.classList.remove('input-error');
-            emailError.style.display = 'none';
-            return true;
-        }
-
-        function validatePhone() {
-            const phone = document.getElementById('phone');
-            const phoneError = document.getElementById('phoneError');
-            const phoneRegex = /^[6-9]\d{9}$/;
-
-            if (!phoneRegex.test(phone.value.trim())) {
-                phone.classList.add('input-error');
-                phoneError.style.display = 'block';
-                return false;
-            }
-            phone.classList.remove('input-error');
-            phoneError.style.display = 'none';
-            return true;
-        }
-
-        function validateCity() {
-            const city = document.getElementById('city');
-            const cityError = document.getElementById('cityError');
-            const cityRegex = /^[a-zA-Z\s]{2,50}$/;
-
-            if (city.value.trim() && !cityRegex.test(city.value.trim())) {
-                city.classList.add('input-error');
-                cityError.style.display = 'block';
-                return false;
-            }
-            city.classList.remove('input-error');
-            cityError.style.display = 'none';
-            return true;
-        }
-
-        function validateState() {
-            const state = document.getElementById('state');
-            const stateError = document.getElementById('stateError');
-            const stateRegex = /^[a-zA-Z\s]{2,50}$/;
-
-            if (state.value.trim() && !stateRegex.test(state.value.trim())) {
-                state.classList.add('input-error');
-                stateError.style.display = 'block';
-                return false;
-            }
-            state.classList.remove('input-error');
-            stateError.style.display = 'none';
-            return true;
-        }
-
-        function validatePincode() {
-            const pincode = document.getElementById('pincode');
-            const pincodeError = document.getElementById('pincodeError');
-            const pincodeRegex = /^\d{6}$/;
-
-            if (pincode.value.trim() && !pincodeRegex.test(pincode.value.trim())) {
-                pincode.classList.add('input-error');
-                pincodeError.style.display = 'block';
-                return false;
-            }
-            pincode.classList.remove('input-error');
-            pincodeError.style.display = 'none';
-            return true;
-        }
-
-        function validateTerms() {
-            const termsCheckbox = document.getElementById('terms');
-            const termsError = document.getElementById('termsError');
-
-            if (!termsCheckbox.checked) {
-                termsError.style.display = 'block';
-                return false;
-            }
-            termsError.style.display = 'none';
-            return true;
-        }
-
-        // Add event listeners for real-time validation
-        document.getElementById('fullName').addEventListener('blur', validateFullName);
-        document.getElementById('email').addEventListener('blur', validateEmail);
-        document.getElementById('phone').addEventListener('blur', validatePhone);
-        document.getElementById('city').addEventListener('blur', validateCity);
-        document.getElementById('state').addEventListener('blur', validateState);
-        document.getElementById('pincode').addEventListener('blur', validatePincode);
-        document.getElementById('terms').addEventListener('change', validateTerms);
-
-        // Checkout Form Validation
-        function validateCheckoutForm() {
-            const isFullNameValid = validateFullName();
-            const isEmailValid = validateEmail();
-            const isPhoneValid = validatePhone();
-            const isCityValid = validateCity();
-            const isStateValid = validateState();
-            const isPincodeValid = validatePincode();
-            const isTermsAccepted = validateTerms();
-
-            return isFullNameValid && isEmailValid && isPhoneValid && 
-                   isCityValid && isStateValid && isPincodeValid && 
-                   isTermsAccepted;
-        }
-
-        // Pay Now button handler
-        document.getElementById('payNow').addEventListener('click', function(event) {
-            event.preventDefault();
-            
-            if (validateCheckoutForm()) {
-                window.location.href = '/payments';
-            }
-        });
-
-        // Terms and Conditions Modal Logic
-        document.getElementById('termsLink').addEventListener('click', function (event) {
-            event.preventDefault();
-            document.getElementById('termsModal').style.display = 'block';
-        });
-
-        document.getElementById('closeModal').addEventListener('click', function () {
-            document.getElementById('termsModal').style.display = 'none';
-        });
-
-        window.addEventListener('click', function (event) {
-            if (event.target === document.getElementById('termsModal')) {
-                document.getElementById('termsModal').style.display = 'none';
-            }
-        });
-    </script>
+<script src="{{ url_for('static', filename='js/checkout.js') }}"></script>
 </body>
 </html>

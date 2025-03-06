@@ -1,31 +1,19 @@
-import re
-import eventlet
-eventlet.monkey_patch()
-import time
-import razorpay
-
 import random, os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import Booking, Cart, Competition, Dog, DogDetails, Service, TimeSlot, Trainer, TrainerEditRequest, UserDetails, Wishlist, db, User, Notification,TrainerInfo
-from flask_socketio import SocketIO, emit
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from models import Booking, Cart, Competition, Dog, DogDetails, Service, TimeSlot, Trainer, TrainerEditRequest, UserDetails, Wishlist, db, User, Notification,TrainerInfo,Revenue
+from flask_socketio import SocketIO
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
 from flask_migrate import Migrate
-from random import randint
 from datetime import datetime, timedelta, timezone
 import logging
+from werkzeug.utils import secure_filename
+from sqlalchemy import func
 
 ## team 3 imports
 
-
-
-
-
-from werkzeug.utils import secure_filename
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from flask_mail import Mail, Message
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -44,19 +32,11 @@ app.config['MAIL_PASSWORD'] = 'adgz kwhe mchu mrnj'
 # Define the upload folder path in your config
 app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
 
-#team3
-
-
 # Configuration for file uploads
 UPLOAD_FOLDER = os.path.join('static', 'images')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['RAZORPAY_KEY_ID'] = 'rzp_test_SQTJsEbtRpGcGI'
-app.config['RAZORPAY_KEY_SECRET'] = 'W6CbPIl5Y6JnepdISTv0GpqY'
-
-#team 3 end
-
 
 # Ensure the uploads folder exists (create if it doesn't)
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -69,6 +49,12 @@ socketio = SocketIO(app)
 #team3 extension
 migrate = Migrate(app, db)
 
+def get_current_time():
+    now_utc = datetime.now(timezone.utc)
+    # IST is UTC + 5:30
+    ist_offset = timedelta(hours=5, minutes=30)
+    now_ist = now_utc + ist_offset
+    return now_ist.date(), now_ist.time()
 
 # Initialize Flask-Login's LoginManager
 login_manager = LoginManager()
@@ -135,15 +121,15 @@ with app.app_context():
         db.session.add_all(services)
         db.session.commit()
 
-        trainers = [
-            Trainer(tname="John Doe", experience="5 years", rating=4.5, description="Expert groomer.", profile_pic="../static/images/man1.jpg", service_id=1),
-            Trainer(tname="Jane Smith", experience="3 years", rating=4.8, description="Specializes in relaxation techniques.", profile_pic="../static/images/man2.jpg", service_id=2),
-            Trainer(tname="Michael Johnson", experience="7 years", rating=4.7, description="Veteran in pet grooming and hygiene.", profile_pic="../static/images/man3.jpg", service_id=1),
-            Trainer(tname="Emily Brown", experience="4 years", rating=4.9, description="Expert in pet relaxation therapy.", profile_pic="../static/images/man4.jpg", service_id=2),
-            Trainer(tname="David Wilson", experience="6 years", rating=4.6, description="Provides excellent healthcare guidance for pets.", profile_pic="../static/images/man5.jpg", service_id=3),
-        ]
-        db.session.add_all(trainers)
-        db.session.commit()
+        # trainers = [
+        #     Trainer(tname="John Doe", experience="5 years", rating=4.5, description="Expert groomer.", profile_pic="../static/images/man1.jpg", service_id=1),
+        #     Trainer(tname="Jane Smith", experience="3 years", rating=4.8, description="Specializes in relaxation techniques.", profile_pic="../static/images/man2.jpg", service_id=2),
+        #     Trainer(tname="Michael Johnson", experience="7 years", rating=4.7, description="Veteran in pet grooming and hygiene.", profile_pic="../static/images/man3.jpg", service_id=1),
+        #     Trainer(tname="Emily Brown", experience="4 years", rating=4.9, description="Expert in pet relaxation therapy.", profile_pic="../static/images/man4.jpg", service_id=2),
+        #     Trainer(tname="David Wilson", experience="6 years", rating=4.6, description="Provides excellent healthcare guidance for pets.", profile_pic="../static/images/man5.jpg", service_id=3),
+        # ]
+        # db.session.add_all(trainers)
+        # db.session.commit()
 
         slots = [
         "09:00 AM", "10:00 AM", "11:00 AM",
@@ -153,6 +139,54 @@ with app.app_context():
           if not TimeSlot.query.filter_by(time_slot=slot).first():
             db.session.add(TimeSlot(time_slot=slot))
             db.session.commit()
+
+
+#team 5
+def init_db():
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+
+        # Insert sample data
+        sample_data = [
+            # Example 1: Dog Sale + Training + Competition
+            Revenue(
+                date="2022-01-07",
+                revenue_type="All",  # All three services
+                dog_name="Golden Retriever",
+                dog_sales=45000,  # Dog sale amount
+                trainer_name="John Doe",
+                commission=7500,  # Training commission
+                competition_name="Agility Championship",
+                competition_amount=10000,  # Competition earnings
+            ),
+            # Example 2: Dog Sale + Training
+            Revenue(
+                date="2022-01-08",
+                revenue_type="Dog Sales & Training",
+                dog_name="Bulldog",
+                dog_sales=35000,
+                trainer_name="Jane Smith",
+                commission=3500,
+                competition_name=None,
+                competition_amount=0,
+            ),
+            # Example 3: Training + Competition
+            Revenue(
+                date="2023-01-09",
+                revenue_type="Training & Competition",
+                dog_name="Beagle",
+                dog_sales=0,
+                trainer_name="Alice Brown",
+                commission=3000,
+                competition_name="Speed Contest",
+                competition_amount=8000,
+            ),
+            # Add your other sample entries...
+        ]
+        db.session.bulk_save_objects(sample_data)
+        db.session.commit()
+
 
 
 # Helper function to parse date from string
@@ -174,7 +208,7 @@ logger = logging.getLogger('service_management')
 # User loader function for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # Helper function to send OTP
 def send_otp(email):
@@ -188,7 +222,9 @@ def send_otp(email):
         msg.body = f"Your OTP is: {otp}. It will expire in 10 minutes."
         mail.send(msg)
         print(otp)
-        otp_generation_time = datetime.utcnow().isoformat() 
+
+        current_date, current_time = get_current_time()
+        otp_generation_time = datetime.combine(current_date, current_time).isoformat()
         return otp, otp_generation_time
     
     except Exception as e:
@@ -205,7 +241,7 @@ def home():
 def admin_dashboard():
     trainers = TrainerInfo.query.filter_by(status=False).all()  # Fetch all pending trainers
     active_users = User.query.count()  # Count active users
-    pending_documents = User.query.filter(TrainerInfo.status==False).count()  # Count pending documents
+    pending_documents = db.session.query(User).join(TrainerInfo).filter(TrainerInfo.status == False).count()  # Count pending documents
     service_providers = User.query.filter(User.role=='trainer', User.verified==True).count()  # Count service providers
     unverified_trainers = User.query.filter(User.role=='trainer', User.verified==False).count()  # Count unverified trainers
     notifications = Notification.query.order_by(Notification.created_at.desc()).all()
@@ -215,7 +251,10 @@ def admin_dashboard():
 @app.route('/trainer_dashboard')
 @login_required
 def trainer_dashboard():
-    return render_template('trainer_dashboard.html', user=current_user)
+    # Fetch the trainer info based on the current user
+    trainer = TrainerInfo.query.filter_by(trainer_id=current_user.id).first()
+    # Render the template with both user and trainer info
+    return render_template('trainer_dashboard.html', user=current_user, trainer=trainer)
 
 @app.route('/customer_dashboard')
 @login_required
@@ -337,7 +376,11 @@ def verify_otp():
         stored_otp, otp_generation_time = session.get('verification_otp'), session.get('otp_generation_time')  
         otp_generation_time = datetime.fromisoformat(otp_generation_time)
         otp_expiration_time = otp_generation_time + timedelta(minutes=10)
-        if datetime.utcnow() > otp_expiration_time:
+
+        current_date, current_time = get_current_time()
+        current_datetime = datetime.combine(current_date, current_time)
+
+        if current_datetime > otp_expiration_time:
             flash('OTP has expired.', 'danger')
             return redirect(url_for('resend_otp'))
         
@@ -346,7 +389,7 @@ def verify_otp():
                 user = User.query.filter_by(email=session['login_email']).first()
                 if user:
                     remember_me = session.get('remember_me', False)
-                    user.last_login = datetime.utcnow()
+                    user.last_login = current_datetime
                     login_user(user, remember=remember_me)
                     db.session.commit()
                     session.pop('login_email', None)
@@ -380,7 +423,7 @@ def verify_otp():
                 
                 db.session.add(new_notification)
                 db.session.commit()
-                socketio.emit('new_notification', {'message': notification_message, 'created_at': datetime.utcnow().isoformat()})
+                socketio.emit('new_notification', {'message': notification_message, 'created_at': current_datetime.isoformat()})
                 try:
                     msg = Message(
                         "Registration Successful!",
@@ -462,7 +505,12 @@ def reset_password():
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
         otp_generation_time = datetime.fromisoformat(session.get('otp_generation_time'))
-        if datetime.utcnow() - otp_generation_time > timedelta(minutes=10):
+
+        current_date, current_time = get_current_time()
+        current_datetime = datetime.combine(current_date, current_time)
+
+
+        if current_datetime - otp_generation_time > timedelta(minutes=10):
             session.pop('password_reset_email', None)
             session.pop('verification_otp', None)
             session.pop('otp_generation_time', None)
@@ -597,7 +645,10 @@ def submit_trainer_info():
         db.session.add(new_notification)
         db.session.commit()
 
-        socketio.emit('new_notification', {'message': notification_message, 'created_at': datetime.utcnow().isoformat()})
+        current_date, current_time = get_current_time()
+        current_datetime = datetime.combine(current_date, current_time)
+        
+        socketio.emit('new_notification', {'message': notification_message, 'created_at': current_datetime.isoformat()})
         flash('Trainer information submitted successfully!', 'success')
 
         try:
@@ -712,6 +763,10 @@ def trainer_info(trainer_id):
 @app.route('/admin_dashboard/user_search', methods=['GET', 'POST'])
 @login_required  # Ensure only logged-in users can access this route
 def user_search():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))
+    
     users = []
     error_message = None
     if request.method == 'POST':
@@ -781,7 +836,8 @@ def mark_notifications_read():
 @login_required
 def all_notifications():
     if current_user.role != 'admin':
-        return {'error': 'Unauthorized'}, 403  # Return an error if not admin
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home')) and {'error': 'Unauthorized'}, 403  # Return an error if not admin
 
     # Get the offset from the query parameters
     offset = int(request.args.get('offset', 0))  # Default to 0 if not provided
@@ -843,30 +899,72 @@ def user_view():
     # Apply filters
     filtered_dogs = [dog for dog in dogs if
                      (breed_filter.lower() in dog.breed.lower() if breed_filter else True) and
-                     (age_filter == '<5' and dog.age < 5 or
-                      age_filter == '5-10' and 5 <= dog.age <= 10 or
-                      age_filter == '10-15' and 10 <= dog.age <= 15 or
-                      age_filter == '15-20' and 15 <= dog.age <= 20 or
-                      age_filter == '>20' and dog.age > 20 or
-                      not age_filter) and
-                     (price_filter == '<10000' and dog.price < 10000 or
-                      price_filter == '10000-20000' and 10000 <= dog.price <= 20000 or
-                      price_filter == '20000-30000' and 20000 <= dog.price <= 30000 or
-                      price_filter == '30000-40000' and 30000 <= dog.price <= 40000 or
-                      price_filter == '>40000' and dog.price > 40000 or
-                      not price_filter)]
+                     (not age_filter or (
+                        (age_filter == '<5' and dog.age < 5) or
+                        (age_filter == '5-10' and 5 <= dog.age <= 10) or
+                        (age_filter == '10-15' and 10 <= dog.age <= 15) or
+                        (age_filter == '15-20' and 15 <= dog.age <= 20) or
+                        (age_filter == '>20' and dog.age > 20)
+                     )) and
+                     (not price_filter or (
+                        (price_filter == '<10000' and dog.price < 10000) or
+                        (price_filter == '10000-20000' and 10000 <= dog.price <= 20000) or
+                        (price_filter == '20000-30000' and 20000 <= dog.price <= 30000) or
+                        (price_filter == '30000-40000' and 30000 <= dog.price <= 40000) or
+                        (price_filter == '>40000' and dog.price > 40000)
+                     ))]
 
     return render_template('index.html', dogs=filtered_dogs, admin=False)
 
-# Admin view (list of dogs)
+
+# Admin view (list of dogs with filtering)
 @app.route('/admin')
 def admin_view():
     dogs = Dog.query.all()
-    return render_template('index.html', dogs=dogs, admin=True)
+    breed_filter = request.args.get('breed', '')
+    age_filter = request.args.get('age', '')
+    price_filter = request.args.get('price', '')
+
+    # Apply filters
+    filtered_dogs = [dog for dog in dogs if
+                     (breed_filter.lower() in dog.breed.lower() if breed_filter else True) and
+                     (not age_filter or (
+                        (age_filter == '<5' and dog.age < 5) or
+                        (age_filter == '5-10' and 5 <= dog.age <= 10) or
+                        (age_filter == '10-15' and 10 <= dog.age <= 15) or
+                        (age_filter == '15-20' and 15 <= dog.age <= 20) or
+                        (age_filter == '>20' and dog.age > 20)
+                     )) and
+                     (not price_filter or (
+                        (price_filter == '<10000' and dog.price < 10000) or
+                        (price_filter == '10000-20000' and 10000 <= dog.price <= 20000) or
+                        (price_filter == '20000-30000' and 20000 <= dog.price <= 30000) or
+                        (price_filter == '30000-40000' and 30000 <= dog.price <= 40000) or
+                        (price_filter == '>40000' and dog.price > 40000)
+                     ))]
+
+    return render_template('index.html', dogs=filtered_dogs,admin=True)
+
 
 # Add dog
+# Configure upload folder
+UPLOAD_FOLDER = 'static/images'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Ensure upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    """Check if file has a valid extension"""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @app.route('/add_dog', methods=['GET', 'POST'])
 def add_dog():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))
+    
     if request.method == 'POST':
         breed = request.form['breed']
         age = request.form['age']
@@ -878,16 +976,32 @@ def add_dog():
         trainability = request.form['trainability']
         height = request.form['height']
         weight = request.form['weight']
-        image = request.form['image']
 
-        new_dog = Dog(breed=breed, age=age, price=price, image=image, traits=traits,
-                      vaccination_details=vaccination_details, health_info=health_info,
-                      grooming_info=grooming_info, trainability=trainability, height=height, weight=weight)
+        # Handle Image Upload
+        if 'image' not in request.files:
+            return "No file part"
         
-        db.session.add(new_dog)
-        db.session.commit()
+        file = request.files['image']
+        
+        if file.filename == '':
+            return "No selected file"
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            # Store relative path in DB
+            image_path = f"images/{filename}"
 
-        return redirect(url_for('admin_view'))  
+            new_dog = Dog(breed=breed, age=age, price=price, image=image_path, traits=traits,
+                          vaccination_details=vaccination_details, health_info=health_info,
+                          grooming_info=grooming_info, trainability=trainability, height=height, weight=weight)
+
+            db.session.add(new_dog)
+            db.session.commit()
+
+            return redirect(url_for('admin_view'))
 
     return render_template('add.html')
 
@@ -970,11 +1084,11 @@ def add_to_cart():
         # Handle dog addition
         if dog_id:
             dog = Dog.query.get_or_404(dog_id)
-            existing_item = Cart.query.filter_by(user_id=user_id, dog_id=dog_id).first()
+            existing_item = Cart.query.filter_by(user_id=user_id, dog_id=dog_id, confirm_booking=False).first()
 
             if existing_item:
                 print("Dog already in cart")
-                return jsonify({'message': 'Dog already in cart'}), 409
+                return jsonify({'message': 'Dog is already in your cart'}), 409
 
             new_cart_item = Cart(
                 user_id=user_id,
@@ -988,7 +1102,9 @@ def add_to_cart():
         # Handle competition/event addition
         elif service_id:
             competition = Competition.query.get_or_404(service_id)
-            existing_item = Cart.query.filter_by(user_id=user_id, service_id=service_id).first()
+            
+            # Check if the event is already in the cart for the user and is not confirmed
+            existing_item = Cart.query.filter_by(user_id=user_id, service_id=service_id, confirm_booking=False).first()
 
             if existing_item:
                 print("Event already in cart")
@@ -1017,7 +1133,8 @@ def add_to_cart():
                 trainer_id=trainer_id,
                 service_id3=service_id3,
                 booking_date=datetime.strptime(booking_date, '%Y-%m-%d').date(),
-                timeslot_id=timeslot_id
+                timeslot_id=timeslot_id,
+                confirm_booking=False
             ).first()
 
             if existing_item:
@@ -1056,20 +1173,19 @@ def add_to_cart():
         print("Error:", str(e))  # Debugging
         return jsonify({'message': 'An error occurred', 'error': str(e)}), 500
 
-
     
 @app.route('/cart')
 @login_required
 def cart():
-    cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+    cart_items = Cart.query.filter_by(user_id=current_user.id , confirm_booking=False).all()
     
     total_quantity = sum(item.quantity for item in cart_items)
     total_price = sum(item.price * item.quantity for item in cart_items)
     
     return render_template('cart.html', 
-                         cart_items=cart_items,
-                         total_quantity=total_quantity,
-                         total_price=total_price)
+                            cart_items=cart_items,
+                            total_quantity=total_quantity,
+                            total_price=total_price)
 
 # Remove dog from cart
 @app.route('/remove_from_cart/<int:cart_id>', methods=['POST'])
@@ -1219,7 +1335,7 @@ def wishlist():
 @login_required
 def checkout():
     # Fetch cart items for the current user
-    cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+    cart_items = Cart.query.filter_by(user_id=current_user.id,confirm_booking=False).all()
 
     # Check if the cart is empty
     if not cart_items:
@@ -1250,11 +1366,10 @@ def checkout():
 @app.route('/process-checkout', methods=['POST'])
 @login_required
 def process_checkout():
-    cart_items = Cart.query.filter_by(user_id=current_user.id).all()
+    cart_items = Cart.query.filter_by(user_id=current_user.id , confirm_booking=False).all()
 
     if not cart_items:
-        flash('Your cart is empty. Please add items before checking out.', 
-              )
+        flash('Your cart is empty. Please add items before checking out.', )
         return redirect('/cart')
 
     # Clear the cart after checkout
@@ -1272,28 +1387,107 @@ def process_checkout():
 def payments():
     return render_template('payments.html')
 
+@app.route('/thank-you', methods=['POST', 'GET'])
+def thank_you():
+    # payment_method = request.form.get('payment_method')
+    # Optionally process payment details here
+    return render_template('thankyou.html')
 
 @app.route('/submit_payment', methods=['POST'])
 def submit_payment():
     # Retrieve the user_id from the form data
-    user_id = request.form.get('user_id')
-    
-    # Check if the user_id is provided and valid
-    if not user_id:
-        return "User ID is required", 400
-    
-    # Fetch the cart items for the given user_id
-    cart_items = Cart.query.filter_by(user_id=user_id).all()
-    
-    # Update the confirm_booking column for all cart items of the user
-    for item in cart_items:
-        item.confirm_booking = True  # Set the confirm_booking to True
-    
-    # Commit the changes to the database
-    db.session.commit()
-    
-    # Optionally, you can return a confirmation message or redirect
-    return redirect(url_for('confirmation_page'))  # Replace with the correct page to show confirmation
+    try:
+        # Fetch the cart items for the given user_id
+        cart_items = Cart.query.filter_by(user_id=current_user.id , confirm_booking=False).all()
+        print(f"Cart items fetched for user_id {current_user.id}: {cart_items}")  # Debug: Log cart items
+
+        if not cart_items:
+            print("Cart is empty.")  # Debug
+            return "No items in the cart to confirm", 400
+                # Initialize summaries and total price
+        dog_summary = {}
+        trainer_summary = {}
+        competition_summary = {}
+        total_price = 0
+
+        # Update the confirm_booking column for all cart items of the user
+        for item in cart_items:
+            print(f"Updating item {item.id} to confirm booking.")  # Debug: Log item updates
+            item.confirm_booking = True  # Set confirm_booking to True
+
+            # Add to summaries for email
+            if item.dog:
+                dog_summary[item.dog.breed] = dog_summary.get(item.dog.breed, 0) + item.price
+            if item.trainer:
+                trainer_summary[item.trainer.tname] = trainer_summary.get(item.trainer.tname, 0) + item.price
+            if item.competition:
+                competition_summary[item.competition.title] = competition_summary.get(item.competition.title, 0) + item.price
+            
+            total_price += item.price
+
+            # Transfer the cart item to the Revenue table
+            revenue_entry = Revenue(
+                date=str(datetime.now().date()), 
+                dog_name=item.dog.breed if item.dog else None,
+                dog_sales=item.price if item.dog_id else 0,
+                trainer_name=item.trainer.tname if item.trainer else None,
+                commission=item.price * 0.2 if item.trainer else 0,  # Example: 20% commission
+                competition_name=item.competition.title if item.competition else None,
+                competition_amount=item.price if item.service_id else 0,
+            )
+            db.session.add(revenue_entry)  # Add the revenue entry to the session
+
+        # Commit the changes to the database
+        db.session.commit()
+        print("Booking confirmed and database updated.")  # Debug: Log success
+        
+        # Send the confirmation email to the user
+            # Prepare the email content
+        email_content = "Dear {},\n\nThank you for your purchase on Pet Heaven! Here is the summary of your order:\n".format(current_user.name)
+        if dog_summary:
+            email_content += "\nDogs Purchased:\n"
+            for dog, price in dog_summary.items():
+                email_content += f"- {dog}: ₹{price}\n"
+
+        if trainer_summary:
+            email_content += "\nTrainers Booked:\n"
+            for trainer, price in trainer_summary.items():
+                email_content += f"- {trainer}: ₹{price}\n"
+
+        if competition_summary:
+            email_content += "\nCompetitions Registered:\n"
+            for competition, price in competition_summary.items():
+                email_content += f"- {competition}: ₹{price}\n"
+
+        email_content += f"\nTotal Price: ₹{total_price}\n"
+        email_content += "We appreciate your business!\n\nBest Regards,\nTeam Pet Heaven"
+
+            # Send Confirmation Email
+        try:
+            msg = Message(
+                subject="Booking Confirmation from Pet Heaven",
+                sender=app.config['MAIL_USERNAME'],  # Ensure this is set in your config
+                recipients=[current_user.email]
+            )
+            msg.body = email_content
+            mail.send(msg)
+            print("Confirmation email sent successfully.")  # Debugging log
+
+        except Exception as e:
+            app.logger.error(f"Failed to send confirmation email: {str(e)}")
+            flash('Booking email could not be sent. Please check your inbox later.', 'warning')
+            
+            # Return a success response with redirect URL
+        return jsonify({
+            "success": True, 
+            "redirect": url_for('thank_you')
+        }), 200
+
+    except Exception as e:
+        # Handle any errors and rollback if needed
+        db.session.rollback()
+        print(f"An error occurred: {str(e)}")  # Debug: Log error
+        return f"An error occurred: {str(e)}", 500
 
 
 #team 4 routes
@@ -1304,8 +1498,13 @@ def home4():
 
 @app.route('/admin4')
 def admin4():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     services = Competition.query.all()
     return render_template('admin4.html', services=services)
+
 def validate_service_data(title, date, time, description):
     errors = []
     
@@ -1328,32 +1527,46 @@ def validate_service_data(title, date, time, description):
     return errors
 
 @app.route('/admin4/events')
+@login_required
 def admin_events():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     try:
-        # Query all registrations
-        registrations = db.session.query(DogDetails).all()
+        # Query competitions and count of paid registrations
+        competition_stats = db.session.query(
+            Competition.title,
+            db.func.count(Cart.id).label('registration_count')
+        ).join(
+            Cart,
+            Competition.id == Cart.service_id
+        ).filter(
+            Cart.confirm_booking == True
+        ).group_by(
+            Competition.title
+        ).all()
         
-        # Group registrations by event
-        events_dict = {}
-        for registration in registrations:
-            if registration.event not in events_dict:
-                events_dict[registration.event] = []
-            events_dict[registration.event].append({
-                'id': registration.id,
-                'name': registration.name,
-                'breed': registration.breed,
-                'age': registration.age,
-            })
+        # Convert to dictionary for template
+        competitions_dict = {
+            comp.title: comp.registration_count 
+            for comp in competition_stats
+        }
         
-        return render_template('admin_events.html', events_dict=events_dict)
+        return render_template('admin_events.html', competitions_dict=competitions_dict)
     except Exception as e:
-        logger.error(f"Error fetching registrations: {e}")
-        flash("Error loading registrations", "danger")
+        logger.error(f"Error fetching competition statistics: {e}")
+        flash("Error loading competition statistics", "danger")
         return redirect(url_for('admin4'))
+    
     
 
 @app.route('/admin4/add_competition', methods=['GET', 'POST'])
 def add_competition():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))
+    
     if request.method == 'POST':
         try:
             # Get form data
@@ -1426,6 +1639,10 @@ def add_competition():
 
 @app.route('/admin4/delete_competition/<int:service_id>', methods=['POST'])
 def delete_competition(service_id):
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     try:
         service = Competition.query.get_or_404(service_id)
         db.session.delete(service)
@@ -1441,6 +1658,10 @@ def delete_competition(service_id):
 
 @app.route('/admin4/edit_competition4/<int:service_id>', methods=['GET', 'POST'])
 def edit_competition4(service_id):
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     try:
         service = Competition.query.get_or_404(service_id)
         
@@ -1510,69 +1731,30 @@ def edit_competition4(service_id):
 @app.route('/myevents4')
 def myevents4():
     try:
-        latest_registration = db.session.query(DogDetails).order_by(DogDetails.id.desc()).first()
-
-        events_dict = {}
-        if latest_registration:
-            events_dict[latest_registration.event] = [{
-                'id': latest_registration.id,
-                'name': latest_registration.name,
-                'breed': latest_registration.breed,
-                'age': latest_registration.age,
-            }]
+        # Get all confirmed competition payments for the current user from Revenue table
+        paid_competitions = db.session.query(Competition.title).join(
+        Cart,
+        Competition.id == Cart.service_id
+        ).filter(
+            Cart.user_id == current_user.id,
+            Cart.confirm_booking == True,
+        ).distinct().all()
+    
+        # Extract competition names into a list
+        competition_list = [comp[0] for comp in paid_competitions]
         
-        return render_template('myevents4.html', events_dict=events_dict)
+        return render_template('myevents4.html', competition_list=competition_list)
     except Exception as e:
         logger.error(f"Error fetching registration: {e}")
         flash("Error loading registration", "danger")
         return redirect(url_for('home4'))
 
-
-@app.route('/details4')
-def details4():
-    return render_template('details4.html')
-@app.route('/validate_details', methods=['POST'])
-def validate_details():
-    # Retrieve form data
-    name = request.form.get('name')
-    email = request.form.get('email')
-    phone = request.form.get('phone')
-    address = request.form.get('address')
-
-    # Validation logic
-    if not name or not email or not phone or not address:
-        flash("All fields are required!")
-        return redirect('/details4')
-
-    if not re.match(r"^[6-9]\d{9}$", phone):
-        flash("Phone number must be 10 digits and start with 6-9!")
-        return redirect('/details4')
-
-    if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
-        flash("Invalid email format!")
-        return redirect('/details4')
-        # Store details in session
-    session['user_details'] = {
-        'name': name,
-        'email': email,
-        'phone': phone,
-        'address': address
-    }
-    # If all validations pass, redirect to the payment page
-    return redirect('/payments4')
 @app.route('/schedule4')
 def schedule4():
     competitions = Competition.query.order_by(Competition.date).all()
     # Render the template and pass the competitions
     return render_template('schedule4.html', competitions=competitions)
 
-
-def get_current_time():
-    now_utc = datetime.now(timezone.utc)
-    # IST is UTC + 5:30
-    ist_offset = timedelta(hours=5, minutes=30)
-    now_ist = now_utc + ist_offset
-    return now_ist.date(), now_ist.time()
 
 # Add a new route to handle payment completion
 @app.route('/complete_payment', methods=['POST'])
@@ -1620,6 +1802,7 @@ def complete_payment():
         flash("Error completing registration", "danger")
         return redirect(url_for('payments4'))
     
+
 @app.route('/register4', methods=['GET', 'POST'])
 def register4():
     service_id = request.args.get('service_id')
@@ -1668,25 +1851,27 @@ def register4():
 #team 3#
 
 # Routes for user 
-@app.route('/a')
-def home_team3():
-    return render_template('index3.html')
-
 @app.route('/services')
 def list_services():
     services = Service.query.all()
     return render_template('services3.html', services=services)
 
-@app.route('/trainers')
-def trainers():
-    trainers = Trainer.query.all()  # Fetch all trainers from the database
-    return render_template('trainers2.html', trainers=trainers)
+@app.route('/tservices')
+def tlist_services():
+    services = Service.query.all()
+    return render_template('tservices.html', services=services)
 
 @app.route('/services/<int:service_id>')
 def trainers_by_service(service_id):
     service = Service.query.get_or_404(service_id)
     trainers = Trainer.query.filter_by(service_id=service_id).all()
     return render_template('trainers.html', service=service, trainers=trainers)
+
+@app.route('/tservices/<int:service_id>')
+def trainers_by_service2(service_id):
+    service = Service.query.get_or_404(service_id)
+    trainers = Trainer.query.filter_by(service_id=service_id).all()
+    return render_template('ttrainers.html', service=service, trainers=trainers)
 
 @app.route('/services/<int:service_id>/appointments', methods=['GET'])
 def direct_appointment(service_id):
@@ -1709,6 +1894,27 @@ def direct_appointment(service_id):
         max_date=max_date
     )
 
+@app.route('/tservices/<int:service_id>/appointments', methods=['GET'])
+def tdirect_appointment(service_id):
+    trainer_id = request.args.get('trainer_id', type=int)
+    if trainer_id is None:
+        return "Trainer ID is required", 400  # Return an error if trainer_id is not provided
+
+    trainer = Trainer.query.get_or_404(trainer_id)
+    service = Service.query.get_or_404(service_id)
+    slots = TimeSlot.query.all()
+    today = datetime.now().date()
+    max_date = today.replace(year=today.year + 1)  # Allow bookings up to 1 year in advance
+    return render_template(
+        'tappointment.html', 
+        trainer=trainer, 
+        service=service, 
+        slots=slots, 
+        service_id=service_id, 
+        today=today, 
+        max_date=max_date
+    )
+
 
 @app.route('/get-available-slots', methods=['POST'])
 def get_available_slots():
@@ -1719,21 +1925,30 @@ def get_available_slots():
     # Get all time slots
     all_slots = TimeSlot.query.all()
     
-    # Get booked slots for the selected date and trainer
+    # Get booked slot IDs for the selected date and trainer
     booked_slots = db.session.query(TimeSlot.id).join(Booking).filter(
         Booking.booking_date == date,
         Booking.trainer_id == trainer_id
     ).all()
-    booked_slot_ids = [slot.id for slot in booked_slots]
+    booked_slot_ids = [slot[0] for slot in booked_slots]  # Extract IDs from tuples
     
-    # Filter out booked slots
+    # Prepare available slots
     available_slots = [
         {'id': slot.id, 'time': slot.time_slot}
         for slot in all_slots
         if slot.id not in booked_slot_ids
     ]
     
-    return jsonify(available_slots)
+    # Prepare booked slots
+    booked_slots_data = [
+        {'id': slot_id, 'time': TimeSlot.query.get(slot_id).time_slot}
+        for slot_id in booked_slot_ids
+    ]
+    
+    return jsonify({
+        'availableSlots': available_slots,
+        'bookedSlots': booked_slots_data
+    })
 
 
 @app.route('/services/<int:service_id>/appointments/confirm-appointment', methods=['POST'])
@@ -1761,7 +1976,7 @@ def confirm_appointment(service_id):
         timeslot_id=timeslot_id
     )
     
-    try:
+    try:    
         db.session.add(booking)
         db.session.commit()
         flash('Appointment booked successfully!', 'success')
@@ -1769,15 +1984,27 @@ def confirm_appointment(service_id):
         db.session.rollback()
         flash('An error occurred while booking. Please try again.', 'error')
         return redirect(url_for('direct_appointment', trainer_id=trainer_id, service_id=service_id))
+
+    # Send confirmation email
+    # try:
+    #     msg = Message(
+    #         "Appointment Confirmed",
+    #         sender=app.config['MAIL_USERNAME'],
+    #         recipients=[date['email']]
+    #     )
+    #     msg.body = f"Dear {date['name']},\n\nThank you for booking an appointment on Pet Heaven. Your booking has been confirmed successfully.\n\nBest Regards,\nPet Heaven Team"
+    #     mail.send(msg)
+    # except Exception as e:
+    #     app.logger.error(f"Failed to send Booking Confirmation email: {str(e)}")
+    #     flash('Booking Confirmation email could not be sent. Please check your inbox later.', 'warning')
     
     return redirect(url_for('booking_confirmation', booking_id=booking.id))
 
 SERVICE_PRICES = {
-    'Grooming': 50,
-    'Relaxation Therapy': 40,
-    'Health Care': 30
+    'Grooming': 1500,
+    'Relaxation Therapy': 1350,
+    'Health Care': 2000
 }
-
 
 @app.route('/booking-confirmation/<int:booking_id>', methods=['GET'])
 def booking_confirmation(booking_id):
@@ -1793,17 +2020,6 @@ def create_order():
     # Convert price to subunits (paise for INR)
     amount_in_paise = int(price * 100)
 
-    # Create an order in Razorpay
-    client = razorpay.Client(auth=(app.config['RAZORPAY_KEY_ID'], app.config['RAZORPAY_KEY_SECRET']))
-    order_data = {
-        "amount": amount_in_paise,
-        "currency": "INR",
-        "receipt": f"receipt_{int(time.time())}"
-    }
-    order = client.order.create(data=order_data)
-
-    return jsonify(order)
-
 
 @app.route('/payment-success', methods=['POST'])
 def payment_success():
@@ -1813,56 +2029,67 @@ def payment_success():
     mail.send(msg)
 
     return jsonify({"message": "Notification sent!"}), 200
+@app.route('/payment-failure', methods=['POST'])
+def payment_failure():
+    data = request.json
+    msg = Message("Payment Failure", recipients=[data['customer_email']])
+    msg.body = f"Dear {data['customer_name']},\n\nYour payment of {data['amount']/100} INR failed. Please try again.\n\nBest Regards,\nDog Spa Team"
+    mail.send(msg)
 
+    return jsonify({"message": "Notification sent!"}), 200
 #-------------------------------------
 #-------------------------------------------
 # Routes for Admin
-#route of admin
-@app.route('/admin3')
-def admin3():
-    try:
-        pending_requests = TrainerEditRequest.query.filter_by(status='pending').all()
-        services = Service.query.order_by(Service.created_at.desc()).all()
-        return render_template('admin3.html', services=services, pending_requests=pending_requests)
-    except Exception as e:
-        logger.error(f"Error fetching data for admin panel: {str(e)}")
-        flash('Error loading admin panel', 'error')
-        return render_template('admin3.html', services=[], pending_requests=[])
+# #route of admin
+# @app.route('/admin3')
+# def admin3():
+#     try:
+#         pending_requests = TrainerEditRequest.query.filter_by(status='pending').all()
+#         services = Service.query.order_by(Service.created_at.desc()).all()
+#         return render_template('admin3.html', services=services, pending_requests=pending_requests)
+#     except Exception as e:
+#         logger.error(f"Error fetching data for admin panel: {str(e)}")
+#         flash('Error loading admin panel', 'error')
+#         return render_template('admin3.html', services=[], pending_requests=[])
 
-@app.route('/admin3/approve/<int:request_id>', methods=['POST'])
-def approve_request(request_id):
-    edit_request = TrainerEditRequest.query.get_or_404(request_id)
-    trainer = Trainer.query.get_or_404(edit_request.trainer_id)
+# @app.route('/approve/<int:request_id>', methods=['POST'])
+# def approve_request(request_id):
+#     edit_request = TrainerEditRequest.query.get_or_404(request_id)
+#     trainer = Trainer.query.get_or_404(edit_request.trainer_id)
 
-    # Apply the approved changes to the Trainer
-    trainer.tname = edit_request.tname
-    trainer.experience = edit_request.experience
-    trainer.rating = edit_request.rating
-    trainer.description = edit_request.description
-    trainer.profile_pic = edit_request.profile_pic
-    trainer.status = 'approved'
+#     # Apply the approved changes to the Trainer
+#     trainer.tname = edit_request.tname
+#     trainer.experience = edit_request.experience
+#     trainer.rating = edit_request.rating
+#     trainer.description = edit_request.description
+#     trainer.profile_pic = edit_request.profile_pic
+#     trainer.status = 'approved'
 
-    # Delete the request after approval
-    db.session.delete(edit_request)
-    db.session.commit()
+#     # Delete the request after approval
+#     db.session.delete(edit_request)
+#     db.session.commit()
 
-    flash("Trainer profile updated successfully!", "success")
-    return redirect(url_for('admin3'))
+#     flash("Trainer profile updated successfully!", "success")
+#     return redirect(url_for('admin3'))
 
-@app.route('/admin3/reject/<int:request_id>', methods=['POST'])
-def reject_request(request_id):
-    edit_request = TrainerEditRequest.query.get_or_404(request_id)
+# @app.route('/admin3/reject/<int:request_id>', methods=['POST'])
+# def reject_request(request_id):
+#     edit_request = TrainerEditRequest.query.get_or_404(request_id)
 
-    # Mark the request as rejected and delete it
-    edit_request.status = 'rejected'
-    db.session.delete(edit_request)
-    db.session.commit()
+#     # Mark the request as rejected and delete it
+#     edit_request.status = 'rejected'
+#     db.session.delete(edit_request)
+#     db.session.commit()
 
-    flash("Trainer edit request rejected.", "error")
-    return redirect(url_for('admin3'))
+#     flash("Trainer edit request rejected.", "error")
+#     return redirect(url_for('admin3'))
 
 @app.route('/add_services', methods=['GET', 'POST'])
 def add_services():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))
+    
     if request.method == 'POST':
         try:
             # Get form data
@@ -2011,43 +2238,58 @@ def delete_service(service_id):
         service = Service.query.get_or_404(service_id)
         
         # Delete all trainers associated with the service
-        Trainer.query.filter_by(service_id=service_id).delete()
+        trainers = Trainer.query.filter_by(service_id=service_id).all()
+        for trainer in trainers:
+            db.session.delete(trainer)
         
         # Delete the service
         db.session.delete(service)
         db.session.commit()
+        
         flash('Service and associated trainers deleted successfully!', 'success')
-        return redirect(url_for('admin_services'))
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting service: {str(e)}")
-        flash('Failed to delete service', 'error')
-    return redirect(url_for('admin3'))
+        flash('Failed to delete service. Error: {}'.format(str(e)), 'error')
+    
+    return redirect(url_for('admin_services'))
 
 @app.route('/admin_services')
 def admin_services():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     services = Service.query.all()
     return render_template('admin_services.html', services=services)
 
 @app.route('/admin_services/<int:service_id>/admin_trainer')
 def admin_trainer(service_id):
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     service = Service.query.get_or_404(service_id)
     return render_template('admin_trainer.html', service=service)
 
 @app.route('/admin_services/<int:service_id>/add_trainer', methods=['GET', 'POST'])
 def add_trainer(service_id):
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     try:
         service = Service.query.get_or_404(service_id)
-
         if request.method == 'POST':
             trainer_name = request.form.get('trainer-name')
+            trainer_number = request.form.get('trainer-number')
             experience = request.form.get('experience')
             rating = request.form.get('rating')
             description = request.form.get('description')
             profile_pic = request.files.get('profile-pic')
 
             # Validate required fields
-            if not all([trainer_name, experience, rating, description, profile_pic]):
+            if not all([trainer_name, trainer_number, experience, rating, description, profile_pic]):
                 flash("All fields are required!", "error")
                 return render_template('add_trainer.html', service=service)
 
@@ -2074,6 +2316,7 @@ def add_trainer(service_id):
             new_trainer = Trainer(
                 service_id=service_id,
                 tname=trainer_name,
+                mobile_number=trainer_number,
                 experience=f"{experience} years",
                 rating=float(rating),
                 description=description,
@@ -2100,78 +2343,124 @@ def add_trainer(service_id):
         flash("An unexpected error occurred", "error")
         return redirect(url_for('admin_trainer', service_id=service_id))
 
-@app.route('/admin_services/<int:service_id>/trainer/<int:trainer_id>/edit', methods=['GET', 'POST'])
-def edit_trainer(service_id, trainer_id):
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/trainers/<int:trainer_id>/edit', methods=['GET', 'POST'])
+def edit_trainer(trainer_id):
     try:
+        # Fetch the trainer by ID
         trainer = Trainer.query.get_or_404(trainer_id)
-        service = Service.query.get_or_404(service_id)
+        service_id = trainer.service_id
 
         if request.method == 'POST':
-            trainer_name = request.form.get('trainer-name')
+            trainer_name = request.form.get('name')
             experience = request.form.get('experience')
             rating = request.form.get('rating')
             description = request.form.get('description')
-            profile_pic = request.files.get('profile-pic')
+            file = request.files.get('profile_pic')
 
             # Validate required fields
             if not all([trainer_name, experience, rating, description]):
-                flash("All fields are required!", "error")
-                return render_template('edit_trainer.html', trainer=trainer, service=service)
+                flash("All fields except profile picture are required!", "error")
+                return render_template('edit_trainer.html', trainer=trainer)
 
             # Validate trainer name
             if not trainer_name.replace(' ', '').isalpha() or not (3 <= len(trainer_name) <= 50):
                 flash("Trainer name must be 3-50 characters and contain only letters and spaces", "error")
-                return render_template('edit_trainer.html', trainer=trainer, service=service)
+                return render_template('edit_trainer.html', trainer=trainer)
 
-            # Handle profile picture upload
-            profile_pic_path = trainer.profile_pic
-            if profile_pic:
-                filename = secure_filename(profile_pic.filename)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                unique_filename = f"{timestamp}_{filename}"
-                profile_pic.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
-                profile_pic_path = f"../static/images/{unique_filename}"
+            # Handle file upload if present
+            if file and allowed_file(file.filename):
+                # Secure the filename and save the file
+                filename = secure_filename(file.filename)
+                
+                # Define the directory where images will be stored (static/images/)
+                file_path = os.path.join('static', 'images', filename)
+                
+                # Save the file to the static/images/ directory
+                file.save(file_path)
+                
+                # Hardcode the path to be stored in the database
+                trainer.profile_pic = f'images/{filename}'  # Save relative path
 
-            # Create a new edit request
-            edit_request = TrainerEditRequest(
-                trainer_id=trainer.id,
-                tname=trainer_name,
-                experience=f"{experience} years",
-                rating=float(rating),
-                description=description,
-                profile_pic=profile_pic_path,
-            )
-            db.session.add(edit_request)
-            db.session.commit()
+            # Update other trainer details
+            trainer.tname = trainer_name
+            trainer.experience = experience
+            trainer.rating = float(rating)
+            trainer.description = description
 
-            flash("Your changes have been submitted for admin approval.", "success")
-            return redirect(url_for('admin_trainer', service_id=service_id))
+            try:
+                # Save changes to the database
+                db.session.commit()
+                flash("Trainer details updated successfully!", "success")
+                return redirect(url_for('admin_trainer', service_id=service_id))
 
-        return render_template('edit_trainer.html', trainer=trainer, service=service)
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Database error while updating trainer: {e}")
+                flash("Error updating trainer details", "error")
+                return render_template('edit_trainer.html', trainer=trainer)
+
+            try:
+                msg = Message(
+                        "Details Successfully Updated!",
+                        sender=app.config['MAIL_USERNAME'],
+                        recipients=[reg_details['email']]
+                    )
+                msg.body = f"Dear {reg_details['name']},\n\nYour account details has been updated successfully.\n\nBest Regards,\nPet Heaven Team"
+                mail.send(msg)
+                
+            except Exception as e:
+                app.logger.error(f"Failed to send Update details confirmation email: {str(e)}")
+                flash('Account details update email could not be sent. Please check your inbox later.', 'warning')
+
+        # GET request: Render the edit form with the trainer's details
+        return render_template('edit_trainer.html', trainer=trainer)
 
     except Exception as e:
         logger.error(f"Error in edit_trainer route: {e}")
         flash("An unexpected error occurred", "error")
         return redirect(url_for('admin_trainer', service_id=service_id))
 
+
 @app.route('/admin_services/<int:service_id>/trainer/<int:trainer_id>/delete', methods=['POST'])
 def delete_trainer(service_id, trainer_id):
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
     try:
+        print(f"Deleting Trainer ID: {trainer_id}")  # Debugging Step
+        
         trainer = Trainer.query.get_or_404(trainer_id)
+        if not trainer:
+            flash("Trainer not found!", "error")
+            return redirect(url_for('admin_trainer', service_id=service_id))
 
-        # Delete the profile picture file if it exists
+        # Delete related records in TrainerInfo
+        TrainerInfo.query.filter_by(trainer_id=trainer_id).delete()
+
+        # Delete related records in TrainerEditRequest
+        TrainerEditRequest.query.filter_by(trainer_id=trainer_id).delete()
+
+        # Delete associated bookings
+        Booking.query.filter_by(trainer_id=trainer_id).delete()
+
+        # Delete trainer profile picture if it exists
         if trainer.profile_pic:
             try:
-                image_path = trainer.profile_pic.replace('../static/', '')
-                profile_pic_path = os.path.join(app.config['UPLOAD_FOLDER'], image_path)
+                image_path = trainer.profile_pic.replace('../static/', 'static/')
+                profile_pic_path = os.path.join(app.root_path, image_path)
                 if os.path.exists(profile_pic_path):
                     os.remove(profile_pic_path)
             except Exception as e:
                 logger.error(f"Error deleting profile picture: {e}")
 
-        # Delete from database
+        # Delete trainer from DB
         db.session.delete(trainer)
         db.session.commit()
+
         flash("Trainer deleted successfully!", "success")
         return redirect(url_for('admin_trainer', service_id=service_id))
 
@@ -2181,9 +2470,288 @@ def delete_trainer(service_id, trainer_id):
         flash(f"Error deleting trainer: {str(e)}", "error")
         return redirect(url_for('admin_trainer', service_id=service_id))
 
+#team 5
+
+@app.route('/r')
+def index():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))  # Redirect to a safe page
+    
+    return render_template('index5.html')
+
+@app.route('/api/revenue')
+def get_revenue():
+    # Calculate total revenue (sum of all three types)
+    total_revenue = (
+        db.session.query(
+            func.coalesce(func.sum(Revenue.dog_sales), 0) +
+            func.coalesce(func.sum(Revenue.commission), 0) +
+            func.coalesce(func.sum(Revenue.competition_amount), 0)
+        ).scalar()
+    )
+
+    # Calculate total commission
+    total_commission = db.session.query(func.coalesce(func.sum(Revenue.commission), 0)).scalar()
+
+    # Bookings by type
+    bookings_by_type = {
+        "Dog Sales": db.session.query(func.count(Revenue.id)).filter(Revenue.dog_sales > 0).scalar(),
+        "Dog Training": db.session.query(func.count(Revenue.id)).filter(Revenue.commission > 0).scalar(),
+        "Competition": db.session.query(func.count(Revenue.id)).filter(Revenue.competition_amount > 0).scalar()
+    }
+
+    # Total bookings
+    total_bookings = sum(bookings_by_type.values())
+
+    # Revenue breakdown by type
+    revenue_breakdown = {
+        "Dog Sales": db.session.query(func.coalesce(func.sum(Revenue.dog_sales), 0)).scalar(),
+        "Dog Training": db.session.query(func.coalesce(func.sum(Revenue.commission), 0)).scalar(),
+        "Competition Earnings": db.session.query(func.coalesce(func.sum(Revenue.competition_amount), 0)).scalar()
+    }
+
+    # Monthly revenue trends
+    monthly_trends = dict(db.session.query(
+        func.substr(Revenue.date, 1, 7),  # Extract YYYY-MM from the date
+        func.coalesce(func.sum(Revenue.dog_sales), 0) +
+        func.coalesce(func.sum(Revenue.commission), 0) +
+        func.coalesce(func.sum(Revenue.competition_amount), 0)
+    ).group_by(func.substr(Revenue.date, 1, 7))
+    .order_by(func.substr(Revenue.date, 1, 7)).all())
+
+    # Yearly revenue trends
+    yearly_trends = dict(db.session.query(
+        func.substr(Revenue.date, 1, 4),  # Extract YYYY from the date
+        func.coalesce(func.sum(Revenue.dog_sales), 0) +
+        func.coalesce(func.sum(Revenue.commission), 0) +
+        func.coalesce(func.sum(Revenue.competition_amount), 0)
+    ).group_by(func.substr(Revenue.date, 1, 4))
+    .order_by(func.substr(Revenue.date, 1, 4)).all())
+
+    # Trainer performance
+    trainer_performance = dict(db.session.query(
+        Revenue.trainer_name,
+        func.coalesce(func.sum(Revenue.dog_sales), 0) +
+        func.coalesce(func.sum(Revenue.commission), 0) +
+        func.coalesce(func.sum(Revenue.competition_amount), 0)
+    ).filter(Revenue.trainer_name.isnot(None))
+    .group_by(Revenue.trainer_name)
+    .order_by(
+        (func.coalesce(func.sum(Revenue.dog_sales), 0) +
+            func.coalesce(func.sum(Revenue.commission), 0) +
+            func.coalesce(func.sum(Revenue.competition_amount), 0)).desc()
+    ).all())
+
+    # Competition revenue breakdown
+    competition_breakdown = dict(db.session.query(
+        Revenue.competition_name,
+        func.coalesce(func.sum(Revenue.competition_amount), 0)
+    ).filter(Revenue.competition_name.isnot(None))
+    .group_by(Revenue.competition_name)
+    .order_by(func.sum(Revenue.competition_amount).desc()).all())
+
+    # Dog revenue breakdown
+    dog_revenue = dict(db.session.query(
+        Revenue.dog_name,
+        func.coalesce(func.sum(Revenue.dog_sales), 0)
+    ).filter(Revenue.dog_name.isnot(None))
+    .group_by(Revenue.dog_name)
+    .order_by(func.sum(Revenue.dog_sales).desc()).all())
+
+    # Prepare the response data
+    data = {
+        'total_revenue': total_revenue,
+        'total_commission': total_commission,
+        'net_profit': total_revenue - total_commission,
+        'total_bookings': total_bookings,
+        'bookings_by_type': bookings_by_type,
+        'revenue_breakdown': revenue_breakdown,
+        'monthly_trends': monthly_trends,
+        'yearly_trends': yearly_trends,
+        'trainer_performance': trainer_performance,
+        'competition_breakdown': competition_breakdown,
+        'dog_revenue': dog_revenue
+    }
+
+    return jsonify(data)
+
+@app.route('/trainer_dashboard/edit_details', methods=['GET', 'POST'])
+@login_required
+def edit_details():
+    # Fetch trainer details for the current user
+    trainer = Trainer.query.filter_by(mobile_number=current_user.mobile_number).first()
+    trainer_info = TrainerInfo.query.filter_by(trainer_id=current_user.id).first()  # Fetch TrainerInfo based on current_user.id
+
+    if not trainer:
+        flash('Trainer not found!', 'danger')
+        return redirect(url_for('trainer_dashboard'))
+
+    if request.method == 'POST':
+        # Fetch new values from the form
+        new_name = request.form.get('tname')
+        new_mobile_number = request.form.get('mobile_number')
+
+        # Check if the mobile number is changed
+        if new_mobile_number != current_user.mobile_number:
+            # Ensure the new mobile number is not already taken in Trainer, User, and TrainerInfo tables
+            existing_trainer = Trainer.query.filter_by(mobile_number=new_mobile_number).first()
+            existing_user = User.query.filter_by(mobile_number=new_mobile_number).first()
+            existing_trainer_info = TrainerInfo.query.filter_by(phone_number=new_mobile_number).first()
+
+            if existing_trainer or existing_user or existing_trainer_info:
+                flash('This mobile number is already in use.', 'danger')
+                return redirect(url_for('edit_details'))
+
+            # Update all tables where mobile number exists
+            Trainer.query.filter_by(mobile_number=current_user.mobile_number).update({"mobile_number": new_mobile_number})
+            User.query.filter_by(mobile_number=current_user.mobile_number).update({"mobile_number": new_mobile_number})
+            
+            # Fetch and update the TrainerInfo instance
+            if trainer_info:
+                trainer_info.phone_number = new_mobile_number
+                trainer_info.trainer_id = current_user.id  # Ensure this is linked properly
+
+        # Handle profile picture upload
+        profile_pic = request.files.get('profile_pic')  # Assuming 'profile_pic' is the name of the file input field
+        profile_pic_path = trainer.profile_pic  # Default to current profile picture path
+
+        if profile_pic:
+            filename = secure_filename(profile_pic.filename)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            unique_filename = f"{timestamp}_{filename}"
+
+            # Make sure the upload folder exists
+            if not os.path.exists(app.config['UPLOAD_FOLDER']):
+                os.makedirs(app.config['UPLOAD_FOLDER'])
+
+            profile_pic.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+
+            profile_pic_path = f"../static/images/{unique_filename}"  # Assuming the folder is static/images
+
+        # Update Trainer table
+        trainer.tname = new_name
+        trainer.experience = request.form.get('experience')
+        trainer.rating = request.form.get('rating')
+        trainer.description = request.form.get('description')
+        trainer.profile_pic = profile_pic_path  # Update the profile picture path
+        # Update User table
+        current_user.name = new_name
+        # Update TrainerInfo table
+        if trainer_info:
+            trainer_info.full_name = new_name
+
+        try:
+            db.session.commit()
+            flash('Trainer details updated successfully!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'An error occurred while updating trainer details: {str(e)}', 'danger')
+
+        return redirect(url_for('trainer_dashboard'))
+
+    return render_template('edit_details.html', trainer=trainer)
+
+
+@app.route('/request_edit/<int:trainer_id>', methods=['POST'])
+@login_required
+def request_edit(trainer_id):
+    trainer = TrainerInfo.query.get(trainer_id)
+    if trainer:
+        trainer.status = True  # Set status to False for Verified
+        db.session.commit()
+        
+    return redirect(url_for('edit_details'))
+
+
+@app.route('/trainer_dashboard/session-details')
+@login_required
+def session_details():
+    # Ensure the user is a trainer
+    trainer = Trainer.query.filter_by(mobile_number=current_user.mobile_number).first()
+    if not trainer:
+        flash('Trainer not found!', 'danger')
+        return redirect(url_for('trainer_dashboard'))
+
+    # Fetch session details for the trainer
+    sessions = (
+        db.session.query(Booking, Service, TimeSlot)
+        .join(Service, Booking.service_id == Service.id)
+        .join(TimeSlot, Booking.timeslot_id == TimeSlot.id)
+        .filter(Booking.trainer_id == trainer.id)
+        .all()
+    )
+
+    return render_template('session_details.html', sessions=sessions, trainer=trainer)
+
+@app.route('/add_admin', methods=['GET', 'POST'])
+@login_required
+def add_admin():
+    if current_user.role != 'admin':
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        number = request.form['number']
+        password = request.form['password']
+
+        if not all([name, email, number, password]):
+            flash('All fields are required.', 'danger')
+            return redirect(url_for('add_admin'))
+
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash('Email already exists. Please use a different email.', 'danger')
+            return redirect(url_for('add_admin'))
+
+        existing_user = User.query.filter_by(mobile_number=number).first()
+        if existing_user:
+            flash('Mobile number already exists. Please use a different number.', 'danger')
+            return redirect(url_for('add_admin'))
+
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+        new_admin = User(
+            name=name,
+            email=email,
+            mobile_number=number,
+            password=hashed_password,
+            role='admin'
+        )
+        db.session.add(new_admin)
+        db.session.commit()
+
+        # Send email to the new admin
+        try:
+            msg = Message(
+                "Admin Account Created",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[email]
+            )
+            msg.body = f"Dear {name},\n\nYour admin account has been created successfully.\n Your account email:- {email} \n pasword={password}.\n\nBest Regards,\nPet Haven Team"
+            mail.send(msg)
+        except Exception as e:
+            app.logger.error(f"Failed to send Admin Account email: {str(e)}")
+            flash('Admin Account email could not be sent. Please check your inbox later.', 'warning')
+
+        # Notify admin about the new admin addition
+        notification_message = f"New admin added: {new_admin.name} ({new_admin.email})"
+        new_notification = Notification(
+            message=notification_message,
+            user_id=new_admin.id
+        )
+        db.session.add(new_notification)
+        db.session.commit()
+        current_date, current_time = get_current_time()
+        current_datetime = datetime.combine(current_date, current_time)
+        socketio.emit('new_notification', {'message': notification_message, 'created_at': current_datetime.isoformat()})
+
+        flash('New admin added successfully!', 'success')
+        return redirect(url_for('admin_dashboard'))
+
+    return render_template('admin/add_admin.html')
 
 # Run the app
 if __name__ == '__main__':
-
     socketio.run(app, debug=True, port=5001)
-

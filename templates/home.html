@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pet Heaven</title>
+    <title>Pet Haven</title>
 
     <!-- External CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
@@ -15,35 +15,25 @@
       integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
       crossorigin="anonymous"
     />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap">
   </head>
   <body>
     <!-- Header -->
-    <header class="header d-flex justify-content-between align-items-center p-3">
-      <a class="navbar-brand text-white d-flex align-items-center" href="{{ url_for('home') }}">
-        <img
-          src="{{ url_for('static', filename='images/logo1.png') }}"
-          alt="Logo"
-          width="30"
-          height="30"
-          class="d-inline-block me-2"
-        />
-        Pet Heaven
-      </a>
-      <nav>
-        <ul class="nav">
-          <li class="nav-item">
-            <a href="{{ url_for('login') }}" class="nav-link text-white">Login</a>
-          </li>
-          <li class="nav-item">
-            <a href="{{ url_for('register') }}" class="nav-link text-white">Register</a>
-          </li>
+    <nav class="navbar">
+      <div class="logo">
+        <img src="{{ url_for('static', filename='images/logo1.png') }}" alt="Pet Heaven Logo">
+        <span>Pet Haven</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="{{ url_for('login') }}" class="nav-link text-white">Login</a></li>
+          <li> <a href="{{ url_for('register') }}" class="nav-link text-white">Register</a></li>
         </ul>
       </nav>
-    </header>
 
     <!-- Main Content -->
     <main class="main text-center py-5">
-      <h1 class="heading mb-4">Welcome to Pet Heaven</h1>
+      <h1 class="heading mb-4">Welcome to Pet Haven-Your Trusted Pet Care Service</h1>
       <p class="text mx-auto px-5">
         Explore our Pet Shop and attend exciting Events that bring pets and pet lovers together, and enjoy top-notch Services including grooming, training, and health checkups—all to ensure your furry friends live their happiest and healthiest lives!
       </p>
@@ -51,7 +41,7 @@
 
     <!-- Footer -->
     <footer class="footer text-center py-3">
-      <p class="mb-0">&copy; 2025. Copyright by Pet Heaven</p>
+      <p class="mb-0">&copy; 2025. Copyright by Pet Haven</p>
     </footer>
 
     <!-- Bootstrap JS -->

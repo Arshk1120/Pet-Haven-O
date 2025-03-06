@@ -208,6 +208,7 @@ class Trainer(db.Model):
     experience = db.Column(db.String(100), nullable=False)
     rating = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text, nullable=False)
+    mobile_number = db.Column(db.String(15), unique=True)
     profile_pic = db.Column(db.String(200), nullable=False)
     status = db.Column(db.String(20), default='active')
 
@@ -283,6 +284,34 @@ class Cart(db.Model):
     service = db.relationship('Service', backref='cart_items', foreign_keys=[service_id3])  # Correct foreign key
 
 
+#team 5
+class Revenue(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.String(10), nullable=False)
+    dog_name = db.Column(db.String(50), nullable=True)
+    dog_sales = db.Column(db.Float, nullable=True, default=0)
+    trainer_name = db.Column(db.String(50), nullable=True)
+    commission = db.Column(db.Float, nullable=True, default=0)
+    competition_name = db.Column(db.String(50), nullable=True)
+    competition_amount = db.Column(db.Float, nullable=True, default=0)
 
 
+class Checkout(db.Model):
+    __tablename__ = 'checkout'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Link to User
+    full_name = db.Column(db.String(150), nullable=False)
+    email = db.Column(db.String(150), nullable=False)
+    phone = db.Column(db.String(15), nullable=False)
+    house_no = db.Column(db.String(100), nullable=False)
+    landmark = db.Column(db.String(255), nullable=True)
+    city = db.Column(db.String(100), nullable=False)
+    state = db.Column(db.String(100), nullable=False)
+    pincode = db.Column(db.String(10), nullable=False)
+    order_total = db.Column(db.Float, nullable=False)
+    payment_status = db.Column(db.String(50), default="Pending")  # Pending, Completed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    user = db.relationship('User', backref='checkout_records')
+    def __repr__(self):
+        return f"<Checkout Order {self.id} - User {self.user_id}>"
